@@ -2,20 +2,28 @@ package main
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"go_learn/src/goTour/basics"
 	"go_learn/src/server"
 )
 
 func main() {
-	fmt.Printf("\n-----------------variables, functions, and packages-----------------\n")
+	cyan := color.New(color.FgCyan).SprintFunc()
+	yellow := color.New(color.FgYellow).SprintFunc()
+	green := color.New(color.FgGreen).SprintFunc()
+	magenta := color.New(color.FgMagenta).SprintFunc()
+	blue := color.New(color.FgBlue).SprintFunc()
+	red := color.New(color.FgRed).SprintFunc()
+
+	fmt.Printf("\n%s\n", cyan("-----------------variables, functions, and packages-----------------"))
 	basics.VarfnpkgsMain()
-	fmt.Printf("\n-----------------flow control-----------------\n")
+	fmt.Printf("\n%s\n", yellow("-----------------flow control-----------------"))
 	basics.FlowControlMain()
-	fmt.Printf("\n-----------------more types: structs, slices, and maps-----------------\n")
+	fmt.Printf("\n%s\n", green("-----------------more types: structs, slices, and maps-----------------"))
 	basics.TypesMain()
-	fmt.Printf("\n-----------------methods and interfaces-----------------\n")
-	fmt.Printf("\n-----------------generics-----------------\n")
-	fmt.Printf("\n-----------------concurrency-----------------\n")
-	fmt.Printf("\n-----------------Simple Server-----------------\n")
+	fmt.Printf("\n%s\n", magenta("-----------------methods and interfaces-----------------"))
+	fmt.Printf("\n%s\n", blue("-----------------generics-----------------"))
+	fmt.Printf("\n%s\n", red("-----------------concurrency-----------------"))
+	fmt.Printf("\n%s\n", color.HiGreenString("-----------------Simple Server-----------------"))
 	server.StartServer()
 }
