@@ -2,8 +2,9 @@ package basics
 
 import (
 	"fmt"
-	// "strings"
 	"golang.org/x/tour/pic"
+	"golang.org/x/tour/wc"
+	"strings"
 )
 
 type ptrStruct struct {
@@ -106,8 +107,87 @@ var m = map[string]Vertex{
 	},
 }
 
+func println(T ...any) {
+	fmt.Println(T...)
+}
+
+func understandingSlicesIn_depth() {
+	aSlice := make([]int, 5)
+	a2dSlice := make([][]int, 5)
+	a3dSlice := make([][][]int, 5)
+	for i := 0; i < 5; i++ {
+		a2dSlice[i] = make([]int, 5)
+		for j := 0; j < 5; j++ {
+			a2dSlice[i][j] = j + 1
+		}
+	}
+	for i := 0; i < 5; i++ {
+		a3dSlice[i] = make([][]int, 5)
+		for j := 0; j < 5; j++ {
+			a3dSlice[i][j] = make([]int, 5)
+			for k := 0; k < 5; k++ {
+				a3dSlice[i][j][k] = k + 1
+			}
+		}
+	}
+	println("Aslice: ", len(aSlice), cap(aSlice), aSlice)
+	println("A2dSlice: ", len(a2dSlice), cap(a2dSlice), a2dSlice)
+	println("A3dSlice: ", len(a3dSlice), cap(a3dSlice), a3dSlice)
+}
+
+// this function creates an N-dimensional slice with the given dimensions.
+func createNDSlice(dims []int) interface{} {
+	if len(dims) == 0 {
+		return 0
+	}
+
+	dim := dims[0]
+	rest := dims[1:]
+
+	// Create the outer slice
+	slice := make([]interface{}, dim)
+	// println("Slice: ", slice)
+	for i := range slice {
+		// Recursively create inner slices
+		slice[i] = createNDSlice(rest)
+		// println("Slice[i]: ", slice[i])
+	}
+
+	return slice
+}
+
+// This function recursively prints an N-dimensional slice.
+func printNDSlice(slice interface{}, level int) {
+	switch s := slice.(type) {
+	case []interface{}:
+		fmt.Printf("[")
+		for i, v := range s {
+			printNDSlice(v, level+1)
+			if i < len(s)-1 {
+				fmt.Printf(" ")
+			}
+		}
+		fmt.Printf("]")
+		if level == 0 {
+			fmt.Println()
+		}
+	default:
+		fmt.Printf("%v", s)
+	}
+}
+
+var wordCount map[string]int
+
+func WordCount(s string) map[string]int {
+	words := strings.Fields(s)
+	wordCount = make(map[string]int)
+	for _, word := range words {
+		wordCount[word]++
+	}
+	return wordCount
+}
+
 func TypesMain() {
-	fmt.Println("-----------------types-----------------")
 	pointers()
 
 	ptrstr := ptrStruct{1, 2}
@@ -117,4 +197,30 @@ func TypesMain() {
 	array()
 	pic.Show(Pic)
 	fmt.Println(m)
+	understandingSlicesIn_depth()
+	dims := []int{3, 4, 2}
+	my3DSlice := createNDSlice(dims)
+	s := my3DSlice.([]interface{})
+	s0 := s[0].([]interface{})
+	s00 := s0[0].([]interface{})
+	s00[0] = 100
+	s00[1] = 101
+
+	fmt.Println("3D Slice:")
+	printNDSlice(my3DSlice, 0)
+
+	// Example: 2x2 slice
+	dims2 := []int{2, 2}
+	my2DSlice := createNDSlice(dims2)
+
+	fmt.Println("\n2D Slice:")
+	printNDSlice(my2DSlice, 0)
+
+	// Example: 1x5 slice (effectively a 1D slice)
+	dims3 := []int{1, 5}
+	my1DSlice := createNDSlice(dims3)
+
+	fmt.Println("\n1D Slice:")
+	printNDSlice(my1DSlice, 0)
+	wc.Test(WordCount)
 }

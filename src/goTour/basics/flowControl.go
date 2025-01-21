@@ -138,6 +138,7 @@ func panicDefer() {
 	f()
 	fmt.Println("Returned normally from f.")
 }
+
 func FlowControlMain() {
 	fmt.Println("for/while loop: ", forLoop())
 	fmt.Println("power: ", pow(3, 5, 100))
