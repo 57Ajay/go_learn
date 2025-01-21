@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/fatih/color"
 	"go_learn/src/goTour/basics"
+	"go_learn/src/goTour/methodsInterfaces"
 	"go_learn/src/server"
 )
 
@@ -21,9 +22,11 @@ func main() {
 	basics.FlowControlMain()
 	fmt.Printf("\n%s\n", green("-----------------more types: structs, slices, and maps-----------------"))
 	basics.TypesMain()
+	basics.IGmain()
 	fmt.Printf("\n%s\n", magenta("-----------------methods and interfaces-----------------"))
+	methodsInterfaces.MethodsInterfacesMain()
 	fmt.Printf("\n%s\n", blue("-----------------generics-----------------"))
 	fmt.Printf("\n%s\n", red("-----------------concurrency-----------------"))
 	fmt.Printf("\n%s\n", color.HiGreenString("-----------------Simple Server-----------------"))
-	server.StartServer()
+	defer server.StartServer()
 }
