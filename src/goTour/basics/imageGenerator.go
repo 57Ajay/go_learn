@@ -25,6 +25,7 @@ func (img Image) At(x, y int) color.Color {
 	fx := float64(x) / float64(img.Width)
 	fy := float64(y) / float64(img.Height)
 
+	// You can provide any function here to generate the color
 	r := uint8(math.Sin(fx*10+math.Cos(fy*20))*127 + 128)
 	g := uint8(math.Sin(fy*10+fx)*127 + 128)
 	b := uint8(math.Cos(fx*20+fy*10)*127 + 128)
