@@ -1,0 +1,19 @@
+# Configuration for air
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/main ." # Build command
+  bin = "./tmp/main"              # Path to the binary
+  include_ext = ["go", "tpl", "tmpl", "html"] # File extensions to watch
+  exclude_dir = ["tmp", "vendor"] # Directories to exclude
+  log = "air.log"                # Log file (optional)
+
+[log]
+  time = true
+
+[color]
+  main = "magenta"
+
+[misc]
+  clean_on_exit = true
