@@ -2,41 +2,59 @@ package main
 
 import (
 	"fmt"
-	// "log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 type Server struct {
 	listenAddr string
 	ln         net.Listener
-	quitch     chan struct{}
+	quit       chan struct{}
 }
 
 func NewServer(listenAddr string) *Server {
 	return &Server{
 		listenAddr: listenAddr,
-		quitch:     make(chan struct{}),
+		quit:       make(chan struct{}),
 	}
 }
 
 func (s *Server) Start() error {
 	ln, err := net.Listen("tcp", s.listenAddr)
-
 	if err != nil {
 		return err
 	}
 	defer ln.Close()
 	s.ln = ln
-	<-s.quitch
+
+	go s.acceptLoop()
+
+	sigchan := make(chan os.Signal, 1)
+	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigchan
+
+	fmt.Println("Shutting down server...")
+	close(s.quit)
 	return nil
 }
 
 func (s *Server) acceptLoop() {
+	defer s.ln.Close()
+
 	for {
 		conn, err := s.ln.Accept()
 		if err != nil {
-			fmt.Println("accept error: ", err)
-			continue
+			select {
+			case <-s.quit:
+				fmt.Println("Server shutting down, exiting accept loop.")
+				return
+			default:
+				fmt.Println("accept error: ", err)
+				continue
+			}
 		}
 		go s.readLoop(conn)
 	}
@@ -49,7 +67,7 @@ func (s *Server) readLoop(conn net.Conn) {
 		n, err := conn.Read(buf)
 		if err != nil {
 			fmt.Println("read Error: ", err)
-			continue
+			return
 		}
 		msg := buf[:n]
 		fmt.Println(string(msg))
@@ -58,6 +76,8 @@ func (s *Server) readLoop(conn net.Conn) {
 
 func main() {
 	server := NewServer(":3000")
-	server.Start()
-
+	if err := server.Start(); err != nil {
+		fmt.Println("Error starting server:", err)
+	}
+	fmt.Println("Server exited.")
 }
