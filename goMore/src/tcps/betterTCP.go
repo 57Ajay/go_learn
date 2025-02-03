@@ -100,6 +100,18 @@ func (s *Server_) handleConnection(conn net.Conn) {
 
 	buf := make([]byte, 4096)
 	for {
+		select {
+		case <-s.quit:
+			log.Println("Shutting down connection...")
+			return
+		default:
+			if s.timeout > 0 {
+				if err := conn.SetReadDeadline(time.Now().Add(s.timeout)); err != nil {
+					log.Printf("Set deadline error: %v", err)
+					return
+				}
+			}
+		}
 		n, err := conn.Read(buf)
 		if err != nil {
 			if err != io.EOF {

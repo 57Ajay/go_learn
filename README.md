@@ -30,6 +30,7 @@ This folder contains examples inspired by **Go by Example**, including:
 ### 3. **Projects** -> Not done yet
 Hands-on projects where I apply my Go knowledge. Some ideas include:
 - **A simple web Crawler**: last project from a tour of go(done)
+- ** TCP Servers**: See goMore folder for TCP Servers(done)
 - **File Processor**: A tool to process and summarize large files.
 - **Concurrency Playground**: Projects demonstrating Go's concurrency model.
 - **more in mind**
