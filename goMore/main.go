@@ -6,7 +6,8 @@ import (
 )
 
 func main() {
-	concur.TestMain()
+	concur.ChanMain()
+	// concur.TestMain()
 	// tcps.BetterMain()
 	// SimpleMain()
 }
