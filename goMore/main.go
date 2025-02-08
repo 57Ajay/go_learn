@@ -6,7 +6,9 @@ import (
 )
 
 func main() {
-	concur.CtxMain()
+	concur.MoreChanMain()
+	// concur.PatrnMain()
+	// concur.CtxMain()
 	// concur.AdvChanMain()
 	// concur.ChanMain()
 	// concur.TestMain()
