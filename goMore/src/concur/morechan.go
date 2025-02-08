@@ -39,6 +39,21 @@ func chanBasics() {
 	fmt.Println("Channel Closed and Range Exited")
 }
 
+type Server_chan struct {
+	users map[string]string
+	mu    sync.Mutex
+}
+
+func NewServer() *Server_chan {
+	return &Server_chan{users: make(map[string]string)}
+}
+
+func (s *Server_chan) AddUser(user string) {
+	s.mu.Lock()
+	s.users[user] = user
+	s.mu.Unlock()
+}
+
 func MoreChanMain() {
 	chanBasics()
 }
