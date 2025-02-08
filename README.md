@@ -7,6 +7,7 @@ Welcome to **go_learn**, a repository documenting my journey into the Go program
 ## 📚 Learning Sources
 - [**A Tour of Go**](https://tour.golang.org/): A guided introduction to Go's syntax and features.
 - [**Go by Example**](https://gobyexample.com/): Practical examples showcasing key Go concepts and idioms.
+- [**GO Concurrency**](https://github.com/57Ajay/go_learn/blob/main/goMore/Go%20CONCURRENCY.pdf): For indepth go concurrency notes (by AI)
 
 ---
 
