@@ -2,11 +2,13 @@ package main
 
 import (
 	// "tcp/src/tcps"
-	"tcp/src/concur"
+	// "tcp/src/concur"
+	"tcp/src/netPackage"
 )
 
 func main() {
-	concur.MoreChanMain()
+	netPackage.Netmain()
+	// concur.MoreChanMain()
 	// concur.PatrnMain()
 	// concur.CtxMain()
 	// concur.AdvChanMain()
