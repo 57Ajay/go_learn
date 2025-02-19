@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 )
 
 func handleConnection(conn net.Conn) {
@@ -18,11 +20,20 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 		fmt.Println("Received: ", string(buffer[:n]))
-		_, err = conn.Write(buffer[:n])
-		if err != nil {
-			fmt.Println("Error writing:", err)
-			return
+
+		if num, err := strconv.Atoi(strings.TrimSpace(string(buffer[:n]))); err == nil {
+			fmt.Println("Received number: ", num)
+			sum := num * (num + 1) / 2
+			fmt.Println("Sum is: ", sum)
+			conn.Write([]byte(strconv.Itoa(sum)))
+		} else {
+			_, err = conn.Write(buffer[:n])
+			if err != nil {
+				fmt.Println("Error writing:", err)
+				return
+			}
 		}
+
 	}
 }
 
