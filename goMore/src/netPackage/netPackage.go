@@ -37,7 +37,7 @@ func handleConnection(conn net.Conn) {
 	}
 }
 
-func Netmain() {
+func startConnection() {
 	listener, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
 		fmt.Println("Error listening:", err)
@@ -54,4 +54,10 @@ func Netmain() {
 		}
 		go handleConnection(conn)
 	}
+
+}
+
+func Netmain() {
+	// startConnection()
+	IPMain()
 }
