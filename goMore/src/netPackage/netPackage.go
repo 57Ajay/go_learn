@@ -59,5 +59,6 @@ func startConnection() {
 
 func Netmain() {
 	// startConnection()
-	IPMain()
+	// IPMain()
+	UdpMain()
 }
