@@ -60,5 +60,6 @@ func startConnection() {
 func Netmain() {
 	// startConnection()
 	// IPMain()
-	UdpMain()
+	// UdpMain()
+	BroadcastUdp()
 }
