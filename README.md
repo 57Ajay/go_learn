@@ -21,22 +21,23 @@ This folder includes exercises and examples from **A Tour of Go** and basic conc
 - Control structures (loops, conditionals, etc.)
 - Goroutines and channels (Concurrency)
 
-### 2. **Go by Example**
+### 2. **Go by Example** -> Abandoned for now
 This folder contains examples inspired by **Go by Example**, including:
 - File handling
 - HTTP servers
 - JSON encoding/decoding
 - Advanced Go idioms
 
-### 3. **Projects** -> Not done yet
+### 3. **Projects** -> done!
 Hands-on projects where I apply my Go knowledge. Some ideas include:
 - **A simple web Crawler**: last project from a tour of go(done)
 - ** TCP Servers**: See goMore folder for TCP Servers(done)
 - **File Processor**: A tool to process and summarize large files.
-- **Concurrency Playground**: Projects demonstrating Go's concurrency model.
+- **Concurrency Playground**: Projects demonstrating Go's concurrency model.(done)
 - **more in mind**
 ---
-
+### 4. **Full redis walkthrough** -> Done
+- **THis includes all the redis DS and their Operations**
 ## 🚀 Goals
 - Build a solid foundation in Go programming.
 - Understand and apply Go's idiomatic practices.
