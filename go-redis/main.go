@@ -9,6 +9,13 @@ import (
 )
 
 func redisClient() *redis.Client {
+	// Start the redis server, I ma using the docker to run redis server
+	// steps to start a redis server using docker
+
+	// 1. docker pull redis:latest
+	// 2. docker run --name redis -p 6379:6379 -d redis
+	// for redis-cli use this command: -> dockr exec -it redis(this should be the name of the redisClient) redis-cli
+
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
@@ -493,14 +500,294 @@ func redisList(rdb *redis.Client) {
 
 }
 
+func advRedisList1(rdb *redis.Client) {
+
+	listName := "task_queue"
+
+	// Simulate a worker waiting for tasks (blocking LPop)
+	go func() {
+		fmt.Println("Worker: Waiting for tasks...")
+		res, err := rdb.BLPop(context.Background(), 10*time.Second, listName).Result() // Block for max 10 seconds
+		if err == redis.Nil {
+			fmt.Println("Worker: Timeout reached, no task received")
+		} else if err != nil {
+			panic(err)
+		} else {
+			fmt.Printf("Worker: Received task from list '%s': %s\n", res[0], res[1]) // res is a []string: [key, value]
+		}
+	}()
+
+	time.Sleep(2 * time.Second) // Wait for a bit
+
+	// Simulate a producer adding a task
+	taskValue := "Process order #123"
+	pushResult, err := rdb.RPush(context.Background(), listName, taskValue).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Producer: Pushed task '%s' to '%s', list length: %d\n", taskValue, listName, pushResult)
+
+	time.Sleep(5 * time.Second) // Wait a bit longer to allow worker to potentially process
+	fmt.Println("advRedisList: Done.")
+
+}
+
+func advRedisList2(rdb *redis.Client) {
+	sourceQueue := "task_queuee"
+	processingQueue := "processing_queue"
+
+	// Simulate a reliable worker using BRPOPLPUSH
+	go func() {
+		fmt.Println("Reliable Worker: Starting to process tasks...")
+		for { // Keep processing tasks indefinitely
+			res, err := rdb.BRPopLPush(context.Background(), sourceQueue, processingQueue, 10*time.Second).Result()
+			if err == redis.Nil {
+				fmt.Println("Reliable Worker: Timeout reached, no new tasks. Checking again...")
+				continue // Check for tasks again after timeout
+			} else if err != nil {
+				// fmt.Println("This ran")
+				panic(err)
+			}
+
+			task := res // Task value is the result (string)
+			fmt.Printf("Reliable Worker: Started processing task: %s\n", task)
+
+			time.Sleep(3 * time.Second) // Simulate task processing time
+
+			// Simulate successful task completion - remove from processing queue
+			removeCount, err := rdb.LRem(context.Background(), processingQueue, 1, task).Result()
+			if err != nil {
+				fmt.Printf("Error removing processed task from processing queue: %v\n", err)
+				// In a real system, you'd need robust error handling and potentially retry/dead-letter queue logic
+			} else {
+				fmt.Printf("Reliable Worker: Successfully processed and removed task: %s, removed count: %d\n", task, removeCount)
+			}
+		}
+	}()
+
+	time.Sleep(2 * time.Second) // Wait a bit
+
+	// Simulate a producer adding tasks to the source queue
+	tasks := []string{"Task A", "Task B", "Task C"}
+	for _, task := range tasks {
+		pushResult, err := rdb.RPush(context.Background(), sourceQueue, task).Result()
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Producer: Pushed task '%s' to '%s', list length: %d\n", task, sourceQueue, pushResult)
+		time.Sleep(1 * time.Second) // Add tasks with a small delay
+	}
+
+	time.Sleep(15 * time.Second) // Let workers process for a while
+	fmt.Println("advRedisList2: Producer finished adding tasks. Let workers continue...")
+	time.Sleep(10 * time.Second) // Wait a bit longer before exiting
+	fmt.Println("BLPOPRPUSH: Done.")
+}
+
+func redisSets(rdb *redis.Client) {
+
+	setName := "mySet"
+
+	// SADD key member [member ...]
+	addedCount1, err := rdb.SAdd(context.Background(), setName, "apple").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SADD '%s' with 'apple', added count: %d\n", setName, addedCount1) // Should be 1 (new member)
+
+	addedCount2, err := rdb.SAdd(context.Background(), setName, "banana", "orange", "grape").Result() // Add multiple
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SADD '%s' with 'banana', 'orange', added count: %d\n", setName, addedCount2) // Should be 2 (new members)
+
+	addedCount3, err := rdb.SAdd(context.Background(), setName, "apple").Result() // Add duplicate
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SADD '%s' with duplicate 'apple', added count: %d\n", setName, addedCount3) // Should be 0 (duplicate ignored)
+
+	members, err := rdb.SMembers(context.Background(), setName).Result() // Get all members
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Set members after SADD operations:", members) // Order is not guaranteed
+
+	// SREM key member [member ...]
+	removedCount1, err := rdb.SRem(context.Background(), setName, "banana").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SREM '%s' remove 'banana', removed count: %d\n", setName, removedCount1) // Should be 1
+
+	removedCount2, err := rdb.SRem(context.Background(), setName, "grape").Result() // Remove non-existent
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SREM '%s' remove 'grape' (non-existent), removed count: %d\n", setName, removedCount2) // Should be 0
+
+	membersAfterRem, err := rdb.SMembers(context.Background(), setName).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Set members after SREM operations:", membersAfterRem)
+
+	// SISMEMBER key member
+	isMember1, err := rdb.SIsMember(context.Background(), setName, "apple").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SISMEMBER '%s' contains 'apple': %t\n", setName, isMember1) // Will be true or false
+
+	isMember2, err := rdb.SIsMember(context.Background(), setName, "grape").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SISMEMBER '%s' contains 'grape': %t\n", setName, isMember2) // Will be false
+
+	isMemberEmptySet, err := rdb.SIsMember(context.Background(), "nonExistentSet", "apple").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SISMEMBER 'nonExistentSet' contains 'apple': %t\n", isMemberEmptySet) // Will be false (treated as empty)
+
+	// SCARD key
+	cardinality, err := rdb.SCard(context.Background(), setName).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SCARD of '%s': %d\n", setName, cardinality)
+
+	emptySetCardinality, err := rdb.SCard(context.Background(), "emptySet").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SCARD of 'emptySet': %d\n", emptySetCardinality)
+}
+
+func advRedisSetOps(rdb *redis.Client) {
+	// SINTER key [key ...]
+	rdb.SAdd(context.Background(), "set1", "a", "b", "c", "d")
+	rdb.SAdd(context.Background(), "set2", "c", "d", "e", "f")
+	rdb.SAdd(context.Background(), "set3", "c", "d", "g")
+
+	intersectionMembers, err := rdb.SInter(context.Background(), "set1", "set2", "set3").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("SINTER set1, set2, set3:", intersectionMembers)
+
+	intersectionEmptySet, err := rdb.SInter(context.Background(), "set1", "nonExistentSet").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("SINTER set1, nonExistentSet:", intersectionEmptySet)
+
+	// SUNION key [key ...]
+	rdb.SAdd(context.Background(), "setA", "apple", "banana", "orange")
+	rdb.SAdd(context.Background(), "setB", "banana", "grape", "kiwi")
+
+	unionMembers, err := rdb.SUnion(context.Background(), "setA", "setB").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("SUNION setA, setB:", unionMembers)
+
+	unionWithEmptySet, err := rdb.SUnion(context.Background(), "setA", "nonExistentSet").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("SUNION setA, nonExistentSet:", unionWithEmptySet)
+
+	// SDIFF key [key ...]
+
+	rdb.SAdd(context.Background(), "setX", "p", "q", "r", "s", "t")
+	rdb.SAdd(context.Background(), "setY", "r", "s", "u", "v")
+	rdb.SAdd(context.Background(), "setZ", "s", "t", "w")
+
+	diffMembers, err := rdb.SDiff(context.Background(), "setX", "setY", "setZ").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("SDIFF setX, setY, setZ:", diffMembers)
+
+	diffWithEmptySet, err := rdb.SDiff(context.Background(), "setX", "nonExistentSet").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("SDIFF setX, nonExistentSet:", diffWithEmptySet) // Should be members of setX
+
+	diffEmptySetWithSet, err := rdb.SDiff(context.Background(), "nonExistentSet", "setX").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("SDIFF nonExistentSet, setX:", diffEmptySetWithSet) // Should be empty list
+
+	// --------------ADVANCED SET OPERATIONS----------------
+	fmt.Println("\n----------------ADVANCED SET OPERATIONS----------------")
+	// SINTERSTORE
+	storeResult1, err := rdb.SInterStore(context.Background(), "intersection_result", "set1", "set2", "set3").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SINTERSTORE into 'intersection_result', result set size: %d\n", storeResult1)
+	storedIntersection, _ := rdb.SMembers(context.Background(), "intersection_result").Result()
+	fmt.Println("Stored intersection members:", storedIntersection)
+
+	// SUNIONSTORE
+	storeResult2, err := rdb.SUnionStore(context.Background(), "union_result", "setA", "setB").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SUNIONSTORE into 'union_result', result set size: %d\n", storeResult2)
+	storedUnion, _ := rdb.SMembers(context.Background(), "union_result").Result()
+	fmt.Println("Stored union members:", storedUnion)
+
+	// SDIFFSTORE
+	storeResult3, err := rdb.SDiffStore(context.Background(), "diff_result", "setX", "setY", "setZ").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SDIFFSTORE into 'diff_result', result set size: %d\n", storeResult3)
+	storedDiff, _ := rdb.SMembers(context.Background(), "diff_result").Result()
+	fmt.Println("Stored difference members:", storedDiff)
+
+	// SINTERCARD
+	cardinality1, err := rdb.SInterCard(context.Background(), 0, "set1", "set2", "set3").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SINTERCARD set1, set2, set3: cardinality = %d\n", cardinality1)
+
+	cardinalityLimited, err := rdb.SInterCard(context.Background(), 0, "set1", "set2", "set3").Result() // Limit to 1
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SINTERCARD ... LIMIT 1: cardinality = %d (limited)\n", cardinalityLimited)
+
+	cardinalityEmptySet, err := rdb.SInterCard(context.Background(), 0, "set1", "nonExistentSet").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("SINTERCARD set1, nonExistentSet: cardinality = %d\n", cardinalityEmptySet) // Should be 0
+}
+
 func main() {
 	rdb := redisClient()
-	fmt.Println("-------Common Redis Operations-------")
-	redisOps(rdb)
-	fmt.Println("\n-------Redis String Operations-------")
-	redisStrings(rdb)
-	fmt.Println("\n-------Advanced Redis String Operations-------")
-	advRedisString(rdb)
-	fmt.Println("\n-------Redis List Operations-------")
-	redisList(rdb)
+	// fmt.Println("-------Common Redis Operations-------")
+	// redisOps(rdb)
+	// fmt.Println("\n-------Redis String Operations-------")
+	// redisStrings(rdb)
+	// fmt.Println("\n-------Advanced Redis String Operations-------")
+	// advRedisString(rdb)
+	// fmt.Println("\n-------Redis List Operations-------")
+	// redisList(rdb)
+	// fmt.Println("\n-------Advanced Redis List Operations-------")
+	// advRedisList1(rdb)
+	// fmt.Println("")
+	// advRedisList2(rdb)
+	fmt.Println("\n-------Redis Sets Operations-------")
+	redisSets(rdb)
+	fmt.Println("\n-------Advanced Redis Sets Operations-------")
+	advRedisSetOps(rdb)
 }
