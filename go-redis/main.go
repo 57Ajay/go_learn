@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	// "strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -772,6 +773,230 @@ func advRedisSetOps(rdb *redis.Client) {
 	fmt.Printf("SINTERCARD set1, nonExistentSet: cardinality = %d\n", cardinalityEmptySet) // Should be 0
 }
 
+func redisHashes(rdb *redis.Client) {
+
+	hashKey := "user:1001"
+
+	// HSET key field value [field value ...]
+	addedCount1, err := rdb.HSet(context.Background(), hashKey, "name", "John Doe").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HSET '%s' field 'name', added count: %d\n", hashKey, addedCount1) // Should be 1 (new field)
+
+	addedCount2, err := rdb.HSet(context.Background(), hashKey, "email", "john.doe@example.com", "age", 30).Result() // Multiple fields
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HSET '%s' multiple fields, added count: %d\n", hashKey, addedCount2) // Should be 2 (new fields)
+
+	addedCount3, err := rdb.HSet(context.Background(), hashKey, "name", "Johnny Doe").Result() // Overwrite existing field
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HSET '%s' overwrite 'name', added count: %d\n", hashKey, addedCount3) // Should be 0 (field overwritten, not added)
+
+	hashData, err := rdb.HGetAll(context.Background(), hashKey).Result() // Get all fields and values
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Hash data after HSET operations:", hashData) // Will be a map[string]string
+
+	// HGET key field
+
+	nameValue, err := rdb.HGet(context.Background(), hashKey, "name").Result()
+	if err == redis.Nil {
+		fmt.Println("HGET 'name': field or hash key does not exist")
+	} else if err != nil {
+		panic(err)
+	} else {
+		fmt.Printf("HGET 'name': %s\n", nameValue)
+	}
+
+	ageValue, err := rdb.HGet(context.Background(), hashKey, "age").Result()
+	if err == redis.Nil {
+		fmt.Println("HGET 'age': field or hash key does not exist")
+	} else if err != nil {
+		panic(err)
+	} else {
+		fmt.Printf("HGET 'age': %s\n", ageValue)
+	}
+
+	cityValue, err := rdb.HGet(context.Background(), hashKey, "city").Result() // Non-existent field
+	if err == redis.Nil {
+		fmt.Println("HGET 'city' (non-existent): field or hash key does not exist (returned nil)")
+	} else if err != nil {
+		panic(err)
+	} else {
+		fmt.Printf("HGET 'city': %s\n", cityValue) // Will not be reached in this case
+	}
+
+	// HMGET key field [field ...]
+
+	fieldValues, err := rdb.HMGet(context.Background(), hashKey, "name", "age", "city", "email").Result() // Request multiple fields
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("HMGET 'name', 'age', 'city', 'email':", fieldValues) // fieldValues is a []interface{}
+
+	// Process the returned values - need to type assert to string if expect string values
+	for i, val := range fieldValues {
+		fieldName := []string{"name", "age", "city", "email"}[i] // Corresponding field name for index i
+		if val == nil {
+			fmt.Printf("HMGET: Field '%s' not found or hash key doesn't exist (value is nil)\n", fieldName)
+		} else {
+			stringValue, ok := val.(string)
+			if ok {
+				fmt.Printf("HMGET: Field '%s': %s\n", fieldName, stringValue)
+			} else {
+				fmt.Printf("HMGET: Field '%s': Value is not a string type (unexpected)\n", fieldName)
+			}
+		}
+	}
+
+	// HGETALL key
+
+	allHashData, err := rdb.HGetAll(context.Background(), hashKey).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HGETALL of '%s':'%v'", hashKey, allHashData) // allHashData is map[string]string
+
+	emptyHashData, err := rdb.HGetAll(context.Background(), "emptyHash").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("HGETALL of 'emptyHash':", emptyHashData)
+
+	// HKEYS key
+
+	fieldNames, err := rdb.HKeys(context.Background(), hashKey).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HKEYS of '%s':'%v'", hashKey, fieldNames) // fieldNames is []string
+
+	fmt.Println()
+	emptyHashKeys, err := rdb.HKeys(context.Background(), "emptyHash").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("HKEYS of 'emptyHash':", emptyHashKeys)
+
+	// HVALS key
+
+	fieldValues_, err := rdb.HVals(context.Background(), hashKey).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HVALS of '%s':'%v'", hashKey, fieldValues_) // fieldValues is []string
+
+	fmt.Println()
+	emptyHashValues, err := rdb.HVals(context.Background(), "emptyHash").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("HVALS of 'emptyHash':", emptyHashValues)
+
+	// HDEL key field [field ...]
+
+	deletedCount1, err := rdb.HDel(context.Background(), hashKey, "name").Result()
+	if err != nil {
+		fmt.Println("Error deleting field 'name':", err)
+	}
+	fmt.Printf("HDEL '%s' field 'name', deleted count: %d\n", hashKey, deletedCount1)
+
+	hashDataAfterDel, err := rdb.HGetAll(context.Background(), hashKey).Result()
+	if err != nil {
+		fmt.Println("Error getting hash data after HDEL:", err)
+	}
+	fmt.Println("Hash data after HDEL 'name':", hashDataAfterDel)
+
+	// HEXISTS key feild
+
+	exists, err := rdb.HExists(context.Background(), hashKey, "name").Result()
+	if err != nil {
+		fmt.Println("Error checking if field 'name' exists:", err)
+	}
+	fmt.Printf("HEXISTS '%s' field 'name': %t\n", hashKey, exists)
+
+	notExists, err := rdb.HExists(context.Background(), hashKey, "city").Result()
+	if err != nil {
+		fmt.Println("Error checking if field 'city' exists:", err)
+	}
+	fmt.Printf("HEXISTS '%s' field 'city': %t\n", hashKey, notExists)
+
+	// HLEN key
+
+	hashLength, err := rdb.HLen(context.Background(), hashKey).Result()
+	if err != nil {
+		fmt.Println("Error getting hash length:", err)
+	}
+	fmt.Printf("HLEN of '%s': %d\n", hashKey, hashLength)
+
+	// HINCRBY key field increment
+
+	hashKey = "product:stats"
+
+	rdb.HSet(context.Background(), hashKey, "views", "100") // Initialize 'views'
+
+	newValue1, err := rdb.HIncrBy(context.Background(), hashKey, "views", 1).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HINCRBY '%s' field 'views' by 1, new value: %d\n", hashKey, newValue1)
+
+	newValue2, err := rdb.HIncrBy(context.Background(), "user:profile", "login_count", 5).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HINCRBY 'user:profile' field 'login_count' by 5, new value: %d\n", newValue2)
+
+	loginCountValue, _ := rdb.HGet(context.Background(), "user:profile", "login_count").Result()
+	fmt.Println("Verified 'login_count' value:", loginCountValue)
+
+	// Example of error handling (invalid integer value in hash field) - not executed to avoid panic in example
+	// rdb.HSet(context.Background(), "item:data", "price", "invalid")
+	// _, err = rdb.HIncrBy(context.Background(), "item:data", "price", 1).Result()
+	//
+	//	if err != nil {
+	//	    fmt.Println("HINCRBY error (invalid integer):", err) // Handle the error
+	//	}
+	//
+	//
+	// ----------> HINCRBYFLOAT key field increment
+
+	hashKey = "product:price"
+
+	rdb.HSet(context.Background(), hashKey, "current_price", "99.99")
+
+	newValueStr1, err := rdb.HIncrByFloat(context.Background(), hashKey, "current_price", 10.5).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HINCRBYFLOAT '%s' field 'current_price' by 10.5, new value (string): %f\n", hashKey, newValueStr1)
+
+	fmt.Printf("HINCRBYFLOAT 'current_price', new value (float64): %f\n", newValueStr1)
+
+	newValueStr2, err := rdb.HIncrByFloat(context.Background(), "sensor:readings", "temperature", 0.25).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("HINCRBYFLOAT 'sensor:readings' field 'temperature' by 0.25, new value (string): %s:->'%f'\n", hashKey, newValueStr2)
+
+	// Example of error handling (invalid float value) - not executed to avoid panic in example
+	// rdb.HSet(context.Background(), "item:data", "weight", "not_a_number")
+	// _, err = rdb.HIncrByFloat(context.Background(), "item:data", "weight", 0.1).Result()
+	// if err != nil {
+	//     fmt.Println("HINCRBYFLOAT error (invalid float):", err) // Handle the error
+	// }
+
+}
+
+func redisSortedSets(rdb *redis.Client) {
+
+}
+
 func main() {
 	rdb := redisClient()
 	// fmt.Println("-------Common Redis Operations-------")
@@ -786,8 +1011,12 @@ func main() {
 	// advRedisList1(rdb)
 	// fmt.Println("")
 	// advRedisList2(rdb)
-	fmt.Println("\n-------Redis Sets Operations-------")
-	redisSets(rdb)
-	fmt.Println("\n-------Advanced Redis Sets Operations-------")
-	advRedisSetOps(rdb)
+	// fmt.Println("\n-------Redis Sets Operations-------")
+	// redisSets(rdb)
+	// fmt.Println("\n-------Advanced Redis Sets Operations-------")
+	// advRedisSetOps(rdb)
+	// fmt.Println("\n-------Redis Hashes Operations-------")
+	// redisHashes(rdb)
+	fmt.Println("\n-------Redis Sorted Sets Operations-------")
+	redisSortedSets(rdb)
 }
