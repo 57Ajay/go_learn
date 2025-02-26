@@ -995,6 +995,179 @@ func redisHashes(rdb *redis.Client) {
 
 func redisSortedSets(rdb *redis.Client) {
 
+	// ZADD key [NX|XX] [CH] [INCR] score member [score member ...]
+	sortedSetName := "leaderboard"
+
+	addedCount1, err := rdb.ZAdd(context.Background(), sortedSetName, redis.Z{Score: 100, Member: "PlayerA"}).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZADD '%s' with PlayerA, added count: %d\n", sortedSetName, addedCount1) // Should be 1
+
+	addedCount2, err := rdb.ZAdd(context.Background(), sortedSetName,
+		redis.Z{Score: 150, Member: "PlayerB"},
+		redis.Z{Score: 120, Member: "PlayerC"},
+	).Result() // Add multiple members
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZADD '%s' with PlayerB, PlayerC, added count: %d\n", sortedSetName, addedCount2) // Should be 2
+
+	addedCount3, err := rdb.ZAdd(context.Background(), sortedSetName, redis.Z{Score: 130, Member: "PlayerB"}).Result() // Update score
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZADD '%s' update PlayerB score, added count: %d\n", sortedSetName, addedCount3) // Should be 0 (score updated, not a new member)
+
+	rangeWithScores, err := rdb.ZRangeWithScores(context.Background(), sortedSetName, 0, -1).Result() // Get range with scores
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Sorted Set after ZADD operations (ZRANGE WITHSCORES): %v", rangeWithScores)
+
+	// ZRANGE key start stop [WITHSCORES]
+
+	top3Players, err := rdb.ZRange(context.Background(), sortedSetName, 0, 2).Result() // Get top 3 (lowest scores)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("ZRANGE 0 2 (top 3 players by score):", top3Players)
+
+	allPlayersWithScores, err := rdb.ZRangeWithScores(context.Background(), sortedSetName, 0, -1).Result() // Get all with scores
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZRANGE 0 -1 WITHSCORES (all players with scores): %v", allPlayersWithScores)
+
+	outOfRangePlayers, err := rdb.ZRange(context.Background(), sortedSetName, 10, 20).Result() // Out of range
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("ZRANGE 10 20 (out of range):", outOfRangePlayers)
+
+	// ZREVRANGE key start stop [WITHSCORES]
+
+	top3PlayersDesc, err := rdb.ZRevRange(context.Background(), sortedSetName, 0, 2).Result() // Top 3 (highest scores)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("ZREVRANGE 0 2 (top 3 players by score - descending):", top3PlayersDesc)
+
+	allPlayersWithScoresDesc, err := rdb.ZRevRangeWithScores(context.Background(), sortedSetName, 0, -1).Result() // All with scores descending
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZREVRANGE 0 -1 WITHSCORES (all players with scores - descending): %v", allPlayersWithScoresDesc)
+
+	// ZSCORE key member
+
+	playerAScore, err := rdb.ZScore(context.Background(), sortedSetName, "PlayerA").Result()
+	if err == redis.Nil {
+		fmt.Println("ZSCORE PlayerA: Member or sorted set does not exist")
+	} else if err != nil {
+		panic(err)
+	} else {
+		fmt.Printf("ZSCORE PlayerA: %f\n", playerAScore) // Score as string
+	}
+
+	nonExistentPlayerScore, err := rdb.ZScore(context.Background(), sortedSetName, "NonExistentPlayer").Result() // Member not found
+	if err == redis.Nil {
+		fmt.Println("ZSCORE NonExistentPlayer: Member or sorted set does not exist (returned nil)")
+	} else if err != nil {
+		panic(err)
+	} else {
+		fmt.Printf("ZSCORE NonExistentPlayer: %f\n", nonExistentPlayerScore) // Will not be reached in this case
+	}
+
+	nonExistentSetScore, err := rdb.ZScore(context.Background(), "nonExistentSortedSet", "PlayerA").Result() // Sorted set doesn't exist
+	if err == redis.Nil {
+		fmt.Println("ZSCORE from 'nonExistentSortedSet': Member or sorted set does not exist (returned nil)")
+	} else if err != nil {
+		panic(err)
+	} else {
+		fmt.Printf("ZSCORE from 'nonExistentSortedSet': %f\n", nonExistentSetScore) // Will not be reached in this case
+	}
+
+	// ZREM key member [member ...]
+
+	removedCount1, err := rdb.ZRem(context.Background(), sortedSetName, "PlayerC", "PlayerD").Result() // Remove existing and non-existent
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZREM '%s' members 'PlayerC', 'PlayerD', removed count: %d\n", sortedSetName, removedCount1) // Should be 1
+
+	rangeAfterRem, err := rdb.ZRangeWithScores(context.Background(), sortedSetName, 0, -1).Result() // Get range after removal
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Sorted Set after ZREM: %v", rangeAfterRem)
+
+	// ZCARD key
+
+	card, err := rdb.ZCard(context.Background(), sortedSetName).Result()
+	if err != nil {
+		fmt.Println("Error getting sorted set cardinality:", err)
+	}
+	fmt.Printf("ZCARD of '%s': %d\n", sortedSetName, card)
+
+	// ZCOUNT key min max
+
+	sortedSetName = "scores"
+
+	rdb.ZAdd(context.Background(), sortedSetName,
+		redis.Z{Score: 80, Member: "UserA"},
+		redis.Z{Score: 90, Member: "UserB"},
+		redis.Z{Score: 100, Member: "UserC"},
+		redis.Z{Score: 110, Member: "UserD"},
+		redis.Z{Score: 120, Member: "UserE"},
+	)
+
+	count1, err := rdb.ZCount(context.Background(), sortedSetName, "90", "110").Result() // Inclusive range
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZCOUNT '%s' range [90, 110] (inclusive): %d\n", sortedSetName, count1) // Should be 3
+
+	count2, err := rdb.ZCount(context.Background(), sortedSetName, "90", "(110").Result() // Exclusive max
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZCOUNT '%s' range [90, (110) (exclusive max): %d\n", sortedSetName, count2) // Should be 2
+
+	count3, err := rdb.ZCount(context.Background(), sortedSetName, "-inf", "100").Result() // -inf to 100
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZCOUNT '%s' range [-inf, 100]: %d\n", sortedSetName, count3) // Should be 3
+
+	count4, err := rdb.ZCount(context.Background(), sortedSetName, "150", "+inf").Result() // 150 to +inf
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZCOUNT '%s' range [150, +inf]: %d\n", sortedSetName, count4) // Should be 0
+
+	emptySetCount, err := rdb.ZCount(context.Background(), "emptySortedSet", "0", "100").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZCOUNT 'emptySortedSet' range [0, 100]: %d\n", emptySetCount) // Should be 0
+
+	// ZRANK key member
+
+	rank1, err := rdb.ZRank(context.Background(), sortedSetName, "UserC").Result()
+	if err != nil {
+		fmt.Println("Error getting rank for 'UserC':", err)
+	}
+	fmt.Printf("ZRANK '%s' member 'UserC': %d\n", sortedSetName, rank1)
+
+	// ZREVANK key member
+
+	rank2, err := rdb.ZRevRank(context.Background(), sortedSetName, "UserC").Result()
+	if err != nil {
+		fmt.Println("Error getting rank for 'UserC':", err)
+	}
+	fmt.Printf("ZREVRANK '%s' member 'UserC': %d\n", sortedSetName, rank2)
+
 }
 
 func main() {
