@@ -1170,26 +1170,208 @@ func redisSortedSets(rdb *redis.Client) {
 
 }
 
+func advRedisSortedSets(rdb *redis.Client) {
+	// ZREMRANGEBYRANK key start stop
+	sortedSetName := "leaderboard"
+
+	// Re-populate leaderboard for example
+	rdb.ZAdd(context.Background(), sortedSetName,
+		redis.Z{Score: 100, Member: "PlayerA"},
+		redis.Z{Score: 120, Member: "PlayerC"},
+		redis.Z{Score: 130, Member: "PlayerB"},
+	)
+
+	removedCount1, err := rdb.ZRemRangeByRank(context.Background(), sortedSetName, 0, 1).Result() // Remove ranks 0 and 1
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZREMRANGEBYRANK '%s' ranks [0, 1], removed count: %d\n", sortedSetName, removedCount1) // Should be 2
+
+	rangeAfterRankRem, err := rdb.ZRangeWithScores(context.Background(), sortedSetName, 0, -1).Result() // Get range after rank removal
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Sorted Set after ZREMRANGEBYRANK (ranks 0-1): %v", rangeAfterRankRem)
+
+	removedCountAll, err := rdb.ZRemRangeByRank(context.Background(), sortedSetName, 0, -1).Result() // Remove all
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZREMRANGEBYRANK '%s' ranks [0, -1] (all), removed count: %d\n", sortedSetName, removedCountAll) // Should be 1 (PlayerB remaining)
+
+	emptySetRemCount, err := rdb.ZRemRangeByRank(context.Background(), "emptySortedSet", 0, 5).Result() // Remove from empty set
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZREMRANGEBYRANK 'emptySortedSet' ranks [0, 5], removed count: %d\n", emptySetRemCount) // Should be 0
+
+	// ZREMRANGEBYSCORE key min max
+
+	rdb.ZAdd(context.Background(), sortedSetName,
+		redis.Z{Score: 50, Member: "ProductA"},
+		redis.Z{Score: 75, Member: "ProductB"},
+		redis.Z{Score: 100, Member: "ProductC"},
+		redis.Z{Score: 125, Member: "ProductD"},
+	)
+
+	removedCount1, err = rdb.ZRemRangeByScore(context.Background(), sortedSetName, "75", "100").Result() // Remove scores [75, 100] inclusive
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZREMRANGEBYSCORE '%s' scores [75, 100], removed count: %d\n", sortedSetName, removedCount1) // Should be 2
+
+	rangeAfterScoreRem, err := rdb.ZRangeWithScores(context.Background(), sortedSetName, 0, -1).Result() // Get range after score removal
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Sorted Set after ZREMRANGEBYSCORE (scores 75-100): %v", rangeAfterScoreRem)
+
+	removedCountInf, err := rdb.ZRemRangeByScore(context.Background(), sortedSetName, "-inf", "60").Result() // Remove scores up to 60
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZREMRANGEBYSCORE '%s' scores [-inf, 60], removed count: %d\n", sortedSetName, removedCountInf) // Should be 1
+
+	removedCountExclusive, err := rdb.ZRemRangeByScore(context.Background(), sortedSetName, "(120", "+inf").Result() // Remove scores > 120 (exclusive)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZREMRANGEBYSCORE '%s' scores (120, +inf], removed count: %d\n", sortedSetName, removedCountExclusive) // Should be 1
+
+	emptySetRemScoreCount, err := rdb.ZRemRangeByScore(context.Background(), "emptySortedSet", "0", "100").Result() // Remove from empty set
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZREMRANGEBYSCORE 'emptySortedSet' scores [0, 100], removed count: %d\n", emptySetRemScoreCount) // Should be 0
+
+	//  ZRANGEBYLEX key min max [LIMIT offset count] and ZREVRANGEBYLEX key max min [LIMIT offset count]
+	//  i have some doubts to clear regarding that so some code might not be correct.
+
+	sortedSetName = "dictionary"
+
+	// Populate dictionary set (all with score 0)
+	rdb.ZAddArgs(context.Background(), sortedSetName, redis.ZAddArgs{
+		Members: []redis.Z{
+			{Score: 0, Member: "apple"},
+			{Score: 0, Member: "banana"},
+			{Score: 0, Member: "apricot"},
+			{Score: 0, Member: "cherry"},
+			{Score: 0, Member: "date"},
+			{Score: 0, Member: "elderberry"},
+		},
+	}).Result()
+
+	// Get all items lexicographically
+	lexRangeAll, err := rdb.ZRangeByLex(context.Background(), sortedSetName, &redis.ZRangeBy{Min: "-", Max: "+"}).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("ZRANGEBYLEX - + (all lexicographically):", lexRangeAll)
+
+	// Get range "[ap" to "(ba"
+	lexRangePartial, err := rdb.ZRangeByLex(context.Background(), sortedSetName, &redis.ZRangeBy{Min: "[ap", Max: "(ba"}).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("ZRANGEBYLEX [ap (ba :", lexRangePartial)
+
+	// Get range "[banana" to "+" with LIMIT 0 2
+	lexRangeLimited, err := rdb.ZRangeByLex(context.Background(), sortedSetName, &redis.ZRangeBy{
+		Min:    "[banana",
+		Max:    "+",
+		Offset: 0,
+		Count:  2,
+	}).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("ZRANGEBYLEX [banana + LIMIT 0 2:", lexRangeLimited)
+
+	// Reverse lexicographical order
+	revLexRangeAll, err := rdb.ZRevRangeByLex(context.Background(), sortedSetName, &redis.ZRangeBy{Min: "+", Max: "-"}).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("ZREVRANGEBYLEX + - (all reverse lexicographically):", revLexRangeAll)
+
+	// ZUNIONSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]
+
+	rdb.ZAdd(context.Background(), "setZ1", redis.Z{Score: 1, Member: "member1"}, redis.Z{Score: 2, Member: "member2"}, redis.Z{Score: 3, Member: "member3"})
+	rdb.ZAdd(context.Background(), "setZ2", redis.Z{Score: 2, Member: "member2"}, redis.Z{Score: 3, Member: "member3"}, redis.Z{Score: 4, Member: "member4"})
+
+	storeResult1, err := rdb.ZUnionStore(context.Background(), "union_result", &redis.ZStore{
+		Keys: []string{"setZ1", "setZ2"},
+	}).Result() // Default AGGREGATE SUM
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZUNIONSTORE into 'union_result', result set size: %d\n", storeResult1)
+	unionResult, _ := rdb.ZRangeWithScores(context.Background(), "union_result", 0, -1).Result()
+	fmt.Printf("Stored union members (SUM aggregation): %v", unionResult)
+
+	storeResult2, err := rdb.ZUnionStore(context.Background(), "weighted_union_min", &redis.ZStore{
+		Keys:      []string{"setZ1", "setZ2"},
+		Weights:   []float64{0.5, 2},
+		Aggregate: "MIN",
+	}).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nZUNIONSTORE into 'weighted_union_min', result set size: %d\n", storeResult2)
+	weightedUnionMinResult, _ := rdb.ZRangeWithScores(context.Background(), "weighted_union_min", 0, -1).Result()
+	fmt.Printf("Stored union members (WEIGHTS 0.5, 2, AGGREGATE MIN): %v", weightedUnionMinResult)
+
+	// ZINTERSTORE destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX]
+
+	rdb.ZAdd(context.Background(), "setInt1", redis.Z{Score: 1, Member: "itemA"}, redis.Z{Score: 2, Member: "itemB"}, redis.Z{Score: 3, Member: "itemC"})
+	rdb.ZAdd(context.Background(), "setInt2", redis.Z{Score: 2, Member: "itemB"}, redis.Z{Score: 3, Member: "itemC"}, redis.Z{Score: 4, Member: "itemD"})
+
+	storeResult3, err := rdb.ZInterStore(context.Background(), "intersect_result", &redis.ZStore{
+		Keys: []string{"setInt1", "setInt2"},
+	}).Result() // Default AGGREGATE SUM
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZINTERSTORE into 'intersect_result', result set size: %d\n", storeResult3)
+	intersectResult, _ := rdb.ZRangeWithScores(context.Background(), "intersect_result", 0, -1).Result()
+	fmt.Printf("Stored intersection members (SUM aggregation): %v", intersectResult)
+
+	storeResult4, err := rdb.ZInterStore(context.Background(), "weighted_intersect_max", &redis.ZStore{
+		Keys:      []string{"setInt1", "setInt2"},
+		Weights:   []float64{1, 0.5},
+		Aggregate: "MAX",
+	}).Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ZINTERSTORE into 'weighted_intersect_max', result set size: %d\n", storeResult4)
+	weightedIntersectMaxResult, _ := rdb.ZRangeWithScores(context.Background(), "weighted_intersect_max", 0, -1).Result()
+	fmt.Println("Stored intersection members (WEIGHTS 1, 0.5, AGGREGATE MAX):", weightedIntersectMaxResult)
+
+}
+
 func main() {
 	rdb := redisClient()
-	fmt.Println("-------Common Redis Operations-------")
-	redisOps(rdb)
-	fmt.Println("\n-------Redis String Operations-------")
-	redisStrings(rdb)
-	fmt.Println("\n-------Advanced Redis String Operations-------")
-	advRedisString(rdb)
-	fmt.Println("\n-------Redis List Operations-------")
-	redisList(rdb)
-	fmt.Println("\n-------Advanced Redis List Operations-------")
-	advRedisList1(rdb)
-	fmt.Println("")
-	advRedisList2(rdb)
-	fmt.Println("\n-------Redis Sets Operations-------")
-	redisSets(rdb)
-	fmt.Println("\n-------Advanced Redis Sets Operations-------")
-	advRedisSetOps(rdb)
-	fmt.Println("\n-------Redis Hashes Operations-------")
-	redisHashes(rdb)
-	fmt.Println("\n-------Redis Sorted Sets Operations-------")
-	redisSortedSets(rdb)
+	// fmt.Println("-------Common Redis Operations-------")
+	// redisOps(rdb)
+	// fmt.Println("\n-------Redis String Operations-------")
+	// redisStrings(rdb)
+	// fmt.Println("\n-------Advanced Redis String Operations-------")
+	// advRedisString(rdb)
+	// fmt.Println("\n-------Redis List Operations-------")
+	// redisList(rdb)
+	// fmt.Println("\n-------Advanced Redis List Operations-------")
+	// advRedisList1(rdb)
+	// fmt.Println("")
+	// advRedisList2(rdb)
+	// fmt.Println("\n-------Redis Sets Operations-------")
+	// redisSets(rdb)
+	// fmt.Println("\n-------Advanced Redis Sets Operations-------")
+	// advRedisSetOps(rdb)
+	// fmt.Println("\n-------Redis Hashes Operations-------")
+	// redisHashes(rdb)
+	// fmt.Println("\n-------Redis Sorted Sets Operations-------")
+	// redisSortedSets(rdb)
+	fmt.Println("\n-------Advanced Redis Sorted Sets Operations-------")
+	advRedisSortedSets(rdb)
 }
