@@ -1,12 +1,19 @@
 package main
 
-import ()
+import "fmt"
 
 func main() {
 	// Fmain()
 	// BytesBufferMain()
 	// ProcessData()
 	// OSSTD()
-	BufioMain()
+	// BufioMain()
 	// BUFSTDMAIN()
+	// ParseMain()
+	JsonMarshalMain()
+	fmt.Println("****************")
+	JsonUnMarshalMain()
+	fmt.Println("****************")
+	EncoderDecoderMain()
+
 }

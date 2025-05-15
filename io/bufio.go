@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func bufioEx1() {
+func BufioEx1() {
 	fileName := "Bufio.txt"
 	content := "Line 1: Hello from Go.\nLine 2: This is a test of bufio.Reader.\nLine 3: Enjoy!"
 	err := os.WriteFile(fileName, []byte(content), 0644)
@@ -63,13 +63,13 @@ func bufioEx1() {
 
 }
 
-func bufioEx2() {
+func BufioEx2() {
 	fileName := "bufioTest.txt"
 	file, err := os.Create(fileName)
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "Error creating the file: %s", err)
 	}
-	// defer os.Remove(fileName)
+	defer os.Remove(fileName)
 	bufferedWriter := bufio.NewWriter(file)
 	defer bufferedWriter.Flush()
 	defer file.Close()
@@ -100,7 +100,7 @@ func bufioEx2() {
 			return
 		}
 		fmt.Printf("Wrote %d bytes for line %d. Buffered: %d bytes.\n", n, i+1, bufferedWriter.Buffered())
-		if bufferedWriter.Buffered() > 20 { // Arbitrary threshold for testing
+		if bufferedWriter.Buffered() > 1024 { // Arbitrary threshold for testing
 			fmt.Println("Buffer threshold reached, flushing...")
 			err = bufferedWriter.Flush()
 			if err != nil {
@@ -116,5 +116,5 @@ func bufioEx2() {
 
 func BufioMain() {
 	// bufioEx1()
-	bufioEx2()
+	BufioEx2()
 }
