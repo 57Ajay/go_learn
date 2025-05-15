@@ -1,0 +1,6 @@
+Hello from Go!
+Writing to a file is easy.
+This line was written using fmt.Fprintln!
+Hello from Go!
+Writing to a file is easy.
+This line was written using fmt.Fprintln!
